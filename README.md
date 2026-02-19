@@ -2,16 +2,17 @@
 
 High-performance Mac-native postflop GTO solver with advanced visualization and exploitative tooling.
 
-## Phase 0 - Architecture & Planning
+## Phase 1 - Hand Evaluator
 
-This repository is currently in Phase 0, which establishes the architecture and planning artifacts:
+This repository is currently in Phase 1, implementing the hand evaluator:
 
 - ✅ Repository structure (monorepo with `engine`, `tree`, `cli` crates)
 - ✅ Memory layout design documentation
 - ✅ Node struct definitions
-- ✅ Exploitability measurement design
-- ✅ Benchmark targets and methodology
-- ✅ Placeholder benchmark harness
+- ✅ Hand evaluator implementation (Cactus Kev two-path approach)
+- ✅ Benchmark harness for evaluator throughput
+- ✅ CLI benchmark tool (`oracle bench evaluator`)
+- ✅ Comprehensive tests (chain assertions, large-sample validation)
 
 ## Repository Structure
 
@@ -43,14 +44,21 @@ cargo run --bin oracle
 # Run all benchmarks
 cargo bench
 
-# Run specific benchmark
+# Run hand evaluator benchmark
+cargo bench --bench hand_evaluator
+
+# Run memory layout benchmark
 cargo bench --bench memory_layout
 
 # Run with output
 cargo bench -- --nocapture
+
+# Run CLI benchmark tool
+cargo run --release --bin oracle bench evaluator
+cargo run --release --bin oracle bench evaluator 10000000  # 10M hands
 ```
 
-The placeholder benchmark (`memory_layout`) validates the benchmark infrastructure by iterating over a small `Vec<Node>` structure. Real benchmarks will be added in Phase 1 (hand evaluator) and Phase 2 (CFR+ solver).
+The hand evaluator benchmark measures 7-card evaluation throughput. Target: 50M+ evals/sec on Apple Silicon with NEON batching.
 
 ## Documentation
 
@@ -61,9 +69,9 @@ The placeholder benchmark (`memory_layout`) validates the benchmark infrastructu
 
 ## Development Status
 
-**Current Phase**: Phase 0 - Architecture & Planning ✅
+**Current Phase**: Phase 1 - Hand Evaluator ✅
 
-**Next Phase**: Phase 1 - Hand Evaluator (target: 50M+ 7-card evals/sec)
+**Next Phase**: Phase 2 - CFR+ Engine (target: <60s for <100k-node tree)
 
 ## License
 

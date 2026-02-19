@@ -25,11 +25,15 @@ At 50M evals/sec with 50-100 ops/eval:
 - **Operations/sec**: 2.5-5 billion ops/sec
 - **Percentage of peak**: ~1.25-2.5% of theoretical peak
 
+**Lookup table arithmetic**: Each 7-card evaluation requires 21 lookups (one per 5-card subset). At 50M evals/sec, that's 21 × 50M = **1.05 billion lookups/sec**. This arithmetic grounds the target—whether it's achievable depends on lookup table cache behavior and SIMD batching, but the math is explicit.
+
 This is realistic given:
 - SIMD (NEON) acceleration can process multiple evaluations in parallel
 - Cache-friendly lookup patterns minimize memory latency
 - Modern bitboard evaluators (e.g., Two Plus Two evaluator) achieve similar throughput on comparable hardware
 - Real-world implementations achieve 30-80M evals/sec on M2-class hardware
+
+**Note**: The scalar path will be benchmarked first to validate correctness. The 50M evals/sec target assumes NEON batching—scalar performance will be lower (typically 10-30M evals/sec) and is acceptable for correctness validation, but the batch API with NEON is required to reach the Phase 1 performance target.
 
 #### Measurement Methodology
 
@@ -167,6 +171,8 @@ A minimal benchmark exists to validate the benchmark pipeline:
 ### Phase 1 Benchmarks
 
 - **Hand evaluator throughput**: 7-card eval/sec
+- **Batch evaluation**: Evaluate 1M hands, measure time
+- **Hand evaluator throughput**: 7-card eval/sec (scalar path benchmarked first, then batch + NEON)
 - **Batch evaluation**: Evaluate 1M hands, measure time
 - **Cache performance**: Measure cache hit rates
 
