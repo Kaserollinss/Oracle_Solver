@@ -14,5 +14,5 @@ pub mod test_tree;
 pub use evaluator::{CactusKevEvaluator, benchmark_throughput};
 pub use node::HandEvaluator;
 pub use cfr::{CfrSolver, RegretStorage};
-pub use exploitability::{compute_exploitability, ConvergenceMetrics};
-pub use test_tree::build_test_tree;
+pub use exploitability::{compute_exploitability, compute_exploitability_with_evs, ConvergenceMetrics};
+pub use test_tree::{build_test_tree, build_test_tree_chance, terminal_ev_table_chance};
