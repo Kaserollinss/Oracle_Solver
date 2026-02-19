@@ -1,0 +1,14 @@
+[package]
+name = "oracle-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "oracle"
+path = "src/main.rs"
+
+[dependencies]
+oracle-engine = { path = "../engine" }
+oracle-tree = { path = "../tree" }

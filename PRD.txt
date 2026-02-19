@@ -1,0 +1,330 @@
+📄 Product Requirements Document
+oracle Solver
+Version: 2.0
+Positioning: High-performance Mac-native postflop GTO solver with advanced visualization and exploitative tooling.
+
+1. Product Vision
+oracle Solver is a professional-grade postflop GTO solver built for serious poker players who want:
+
+Fast local solves
+
+Clean visualization
+
+Reliable exploitability metrics
+
+Advanced node locking
+
+Initial focus: Best-in-class Mac-native solver experience.
+Cross-platform support will be enabled through a modular engine architecture, but not prioritized over core product quality.
+
+2. Product Scope
+2.1 Initial Focus
+
+Heads-up postflop solving
+
+Cash game model (100bb default)
+
+Fixed bet sizes
+
+CPU-based CFR+ engine
+
+Mac-first UI
+
+2.2 Explicitly Out of Scope (Initial Versions)
+
+Neural CFR
+
+Tournament ICM / PKO
+
+GPU backend
+
+Real-time subgame resolving
+
+LLM explanation features
+
+Full preflop abstraction
+These may be considered post-product-market fit.
+
+3. Core Functional Requirements
+3.1 Solver Engine
+Algorithm
+
+CFR+ (primary)
+
+Optional: Linear CFR variant
+
+Regret matching+
+
+Strategy accumulation
+
+Performance Goals
+
+Solve small flop trees (<100k nodes) in <60 seconds on Apple Silicon
+
+Multi-threaded CPU scaling
+
+Exploitability calculation included
+
+Precision Control
+
+User-defined exploitability threshold (e.g., 0.1% pot)
+
+Iteration cap
+
+Time cap
+
+3.2 Game Tree Builder
+Initial Support
+
+Heads-up only
+
+Fixed stack depth (100bb default)
+
+Fixed bet sizing options (e.g., 33%, 75%, all-in)
+
+2 sizes per street max
+
+No rake in v1
+
+Later Additions
+
+Rake modeling (capped/uncapped)
+
+Asymmetric stacks
+
+Geometric sizing
+
+Board isomorphism reduction
+
+Batch tree generation
+
+3.3 Analytics & Visualization
+MVP UI Capabilities
+
+13x13 range heatmaps
+
+Node-by-node action breakdown
+
+EV display
+
+Frequency visualization
+
+Strategy comparison (IP vs OOP toggle)
+
+Phase 2+ Analytics
+
+Aggregation reports
+
+CSV/JSON export
+
+“Hotness” metric (equity shift by future card)
+
+Range vs range explorer
+
+Blocker impact visualization
+
+3.4 Exploitative Tools
+Phase 2
+
+Node locking
+
+Re-solve with fixed strategy
+
+EV delta comparison
+
+Phase 3
+
+Range locking presets
+
+Exploitability heatmap
+
+4. Technical Architecture
+4.1 Core Design Philosophy
+The engine must be:
+
+UI-agnostic
+
+Platform-agnostic
+
+Deterministic
+
+Memory-efficient
+
+Highly parallelizable
+The solver core must compile independently of any UI layer.
+
+4.2 Tech Stack (Initial)
+Engine
+
+Rust (primary)
+
+Memory safety
+
+Excellent concurrency
+
+Strong SIMD support
+
+Cross-platform compilation
+
+CPU Optimization
+
+SIMD (AVX2 / NEON)
+
+Multi-threading via Rayon
+
+UI (Mac First)
+
+SwiftUI frontend
+
+Native macOS experience
+
+IPC bridge to Rust core
+
+Data Storage
+
+Custom binary .oracle format
+
+Optional DuckDB integration later for analysis queries
+
+4.3 Architecture Layers
+
+Layer 1 — Core Solver Engine (Rust): CFR logic, Regret storage, Tree traversal, Evaluator, Exploitability calculation.
+
+Layer 2 — Tree Builder Module: Node struct definitions, Action generation, Stack handling, Bet sizing logic.
+
+Layer 3 — Solve Manager: Iteration control, Convergence tracking, Resource allocation.
+
+Layer 4 — UI Adapter: Exposes JSON or FFI interface. No solver logic inside UI.
+This ensures future cross-platform support without rewriting core logic.
+
+5. Development Roadmap
+🟢 PHASE 0 — Architecture & Planning
+
+Deliverables: Internal solver memory layout design, Node struct definitions, Benchmarks target, Exploitability measurement design.
+
+🟢 PHASE 1 — Hand Evaluator
+
+Goal: 50M+ 7-card evals/sec.
+
+Steps: Bitboard representation, Lookup tables, SIMD optimization, Benchmark harness.
+
+Deliverable: CLI benchmark tool.
+
+🟢 PHASE 2 — CFR+ Engine
+
+Steps: Single-thread CFR+, Strategy accumulation, Regret matching+, Exploitability calculation, Multi-threading.
+
+Deliverable: Solve fixed small tree via CLI.
+
+🟢 PHASE 3 — Tree Builder
+
+Steps: Fixed bet sizes, 100bb stack, Flop → turn → river generation, Memory profiling.
+
+Deliverable: End-to-end solve from tree build to convergence.
+
+🟢 PHASE 4 — Mac UI (MVP Launch)
+
+Steps: SwiftUI layout, Heatmap rendering, Node navigation, Solve control panel, EV visualization.
+
+Deliverable: Mac app capable of solving standard flop tree.
+🚀 This is the MVP release.
+
+🔵 PHASE 5 — Core Feature Expansion
+
+Rake modeling, Asymmetric stacks, Node locking, Strategy export format, Batch solving, Aggregation engine.
+
+🔵 PHASE 6 — Differentiation Layer
+
+Hotness metric, Advanced visualizations, Range vs range explorer, Blocker analysis, Drill mode prototype.
+
+🔵 PHASE 7 — Monetization Features
+
+GTO Trainer mode, EV loss tracking, Hand history import, Study reports, Cloud solve offload.
+
+🟣 PHASE 8 — Research & High-Performance Extensions
+
+GPU acceleration backend, WebGPU experimentation, CUDA/Tensor Core kernels, Neural CFR experimentation, Real-time resolving.
+These are optional and only pursued if justified by performance data.
+
+6. Suggested Development Process
+To ensure eventual cross-platform support without early overengineering:
+6.1 Repository Structure
+Monorepo recommended:
+/oracle-solver
+/engine (Rust crate)
+/tree
+/cli
+/ui-mac
+/shared-types
+Engine must compile and run independently of UI.
+
+6.2 Development Principles
+
+Engine First: Never build UI features without engine stability.
+
+CLI Test Harness: All engine functionality must be accessible via CLI before UI integration.
+
+Deterministic Testing: Every solve must: Use fixed seeds, Have regression tests, Store known convergence benchmarks.
+
+Platform Isolation: No macOS-specific logic inside engine crate.
+
+FFI Boundary Cleanliness: Expose minimal, stable interface between Rust and UI.
+
+6.3 Cross-Platform Strategy
+Instead of immediate Electron/Qt port:
+
+Phase 1: Ship Mac-native SwiftUI
+
+Phase 2: Extract UI-agnostic API layer, Build Tauri or React-based frontend
+
+Phase 3: Windows + Linux builds, Possibly WebAssembly (future)
+Key rule: Cross-platform happens AFTER core is stable.
+
+7. Competitive Positioning
+Primary competitors:
+
+PioSOLVER
+
+GTO+
+
+Simple Postflop
+oracle differentiates through:
+
+Mac-native experience
+
+Modern visualization
+
+Clean UX
+
+Strong exploitative tooling
+Not through exotic research features.
+
+8. Success Metrics
+MVP Success:
+
+<60 second solve for standard flop tree
+
+Stable exploitability calculation
+
+Zero crashes
+
+Smooth UI navigation
+
+Post-MVP Success:
+
+Node locking stability
+
+Batch solving capability
+
+User retention in drill mode
+
+Final Strategic Insight
+The key improvement from v1 PRD:
+This is now a ship-focused product plan, not a research wishlist.
+You build:
+
+A terrifyingly clean CFR+ core.
+
+A beautiful Mac-native interface.
+
+Then layer power features.

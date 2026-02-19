@@ -1,0 +1,13 @@
+[package]
+name = "oracle-tree"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "oracle_tree"
+path = "src/lib.rs"
+
+[dependencies]
+oracle-engine = { path = "../engine" }
