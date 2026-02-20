@@ -1,0 +1,14 @@
+Makefile linguist-documentation
+makefile linguist-documentation
+*.mk linguist-documentation
+
+tests/**/*.json linguist-vendored
+data/*.csv linguist-vendored
+
+docs/**/* linguist-documentation
+
+scripts/*.sh linguist-detectable=false
+
+# Ignore any leftover dependency or meta files just in case
+*.d linguist-vendored
+*.rmeta linguist-vendored
