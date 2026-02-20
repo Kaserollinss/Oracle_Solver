@@ -6,13 +6,14 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use oracle_engine::evaluator::CactusKevEvaluator;
 use oracle_engine::node::Card;
+use oracle_engine::HandEvaluator;
 
 /// Simple LCG for deterministic random number generation
 struct Lcg {
     state: u64,
 }
 
-impl Lcg {
+impl Lcg {  
     fn new(seed: u64) -> Self {
         Lcg { state: seed }
     }
