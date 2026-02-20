@@ -5,6 +5,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use oracle_engine::evaluator::CactusKevEvaluator;
+use oracle_engine::HandEvaluator;
 use oracle_engine::node::Card;
 
 /// Simple LCG for deterministic random number generation
