@@ -188,46 +188,39 @@ mod tables {
     /// Lookup flush rank from rank-bit mask
     ///
     /// The rank mask has bits set for ranks present in the flush suit.
-    /// Returns rank in [1, 1277] where 1 = royal flush, 1277 = worst flush.
+    /// Returns rank in [1, 10] for straight flushes, [323, 1599] for regular flushes.
     pub(crate) fn lookup_flush_rank(rank_mask: u16) -> u16 {
-        // Royal flush: A-K-Q-J-10 = bits 12,11,10,9,8 set = 0b1111100000000 = 0x7C00
-        if rank_mask == 0x7C00 {
-            return 1;
+        // Check for straight flush: wheel (A-5-4-3-2) = bits 12,3,2,1,0
+        if rank_mask == 0x100F {
+            return 10; // Wheel straight flush (5-high)
         }
-        
-        // Check for straight flush
-        let mut is_straight = false;
-        let mut straight_high = 0u16;
-        
-        // Check for A-2-3-4-5 straight (wheel)
-        if (rank_mask & 0x1F00) == 0x1F00 {
-            is_straight = true;
-            straight_high = 5;
-        }
-        
-        // Check for other straights
-        for high in 5..=12 {
-            let mask = 0x1F << (high - 4);
-            if (rank_mask & mask) == mask {
-                is_straight = true;
-                straight_high = high + 1;
-                break;
+
+        // Check for other straight flushes (5 consecutive bits), including 6-high (2-3-4-5-6)
+        for high in 4u16..=12 {
+            let mask = 0x1Fu16 << (high - 4);
+            if rank_mask == mask {
+                // high+1 == 13 means A-high (royal flush) → rank 1; K-high → 2; ...; 6-high → 9
+                let straight_high = high + 1;
+                return if straight_high == 13 { 1 } else { 14 - straight_high };
             }
         }
-        
-        if is_straight {
-            // Straight flush: rank 1-10 (1 = royal, 2-10 = K-high down to 5-high)
-            return if straight_high == 13 { 1 } else { 14 - straight_high };
+
+        // Regular flush: ranks 323-1599
+        // Use combinatorial number system: higher cards → lower rank number (stronger hand)
+        let mut bits = [0u8; 5];
+        let mut count = 0;
+        for i in (0u8..13).rev() {
+            if rank_mask & (1u16 << i) != 0 {
+                bits[count] = i;
+                count += 1;
+            }
         }
-        
-        // Regular flush: rank by highest cards
-        // Flush ranks are 11-1277
-        let highest = 15 - rank_mask.leading_zeros() as u16;
-        let bit_count = rank_mask.count_ones() as u16;
-        
-        // Simple ranking: higher cards = lower rank number
-        // This is a placeholder - full table would have all 1277 flush combinations
-        11 + (13 - highest) * 10 + (5 - bit_count) // Placeholder formula
+        // bits[0] > bits[1] > ... > bits[4]
+        let idx = (comb(bits[0], 5) + comb(bits[1], 4) + comb(bits[2], 3)
+            + comb(bits[3], 2) + comb(bits[4], 1)) as u32;
+        // Map idx (0..1286) to rank 323-1599: higher idx (better hand) → lower rank
+        let offset = (1286 - idx) * 1276 / 1286;
+        323 + offset as u16
     }
 
     /// Lookup non-flush rank from prime product hash
@@ -286,7 +279,17 @@ mod tables {
         if counts[0] == 2 {
             return rank_one_pair(ranks[0], ranks[2], ranks[3], ranks[4]);
         }
-        
+
+        // All different ranks: check for straight before high card
+        // Normal straight: 5 consecutive ranks
+        if ranks[0] as i16 - ranks[4] as i16 == 4 {
+            return 1600 + (12 - ranks[0]) as u16;
+        }
+        // Wheel: A-5-4-3-2 (ranks 12,3,2,1,0)
+        if ranks[0] == 12 && ranks[1] == 3 && ranks[4] == 0 {
+            return 1609;
+        }
+
         // High card
         rank_high_card(ranks[0], ranks[1], ranks[2], ranks[3], ranks[4])
     }
@@ -312,8 +315,8 @@ mod tables {
     }
 
     fn rank_three_of_a_kind(trips_rank: u8, kicker1: u8, kicker2: u8) -> u16 {
-        // Three of a kind ranks: 323-1599
-        let base = 323 + (12 - trips_rank) as u16 * 66;
+        // Three of a kind ranks: 1610-2467
+        let base = 1610 + (12 - trips_rank) as u16 * 66;
         let kicker_rank = if kicker1 > kicker2 {
             (12 - kicker1) as u16 * 12 + (12 - kicker2) as u16
         } else {
@@ -323,24 +326,24 @@ mod tables {
     }
 
     fn rank_two_pair(high_pair: u8, low_pair: u8, kicker: u8) -> u16 {
-        // Two pair ranks: 1600-2467 (868 slots).
+        // Two pair ranks: 2468-3325 (858 slots).
         // 78 pair combos × 11 kicker slots = 858 hands, fits in range.
         // combo index 0..77 via combinatorial number system.
         let combo = comb(high_pair, 2) + comb(low_pair, 1);
-        let base = 1600 + (77 - combo) * 11;
+        let base = 2468 + (77 - combo) * 11;
         let kicker_off = (12u8.saturating_sub(kicker)).min(10) as u16;
         base + kicker_off
     }
 
     fn rank_one_pair(pair_rank: u8, kicker1: u8, kicker2: u8, kicker3: u8) -> u16 {
-        // One pair ranks: 2468-3325 (858 slots).
-        // 13 pair ranks × 66 top-2-kicker combos = 858 hands, fits exactly.
+        // One pair ranks: 3326-6185 (2860 slots).
+        // 13 pair ranks × C(12,3)=220 kicker combos = 2860 hands.
         let mut kickers = [kicker1, kicker2, kicker3];
         kickers.sort();
-        kickers.reverse();
-        let kicker_combo = comb(kickers[0], 2) + comb(kickers[1], 1); // 0..65
-        let base = 2468 + (12 - pair_rank) as u16 * 66;
-        base + (65 - kicker_combo)
+        kickers.reverse(); // kickers[0] >= kickers[1] >= kickers[2]
+        let kicker_combo = comb(kickers[0], 3) + comb(kickers[1], 2) + comb(kickers[2], 1); // 0..219
+        let base = 3326 + (12 - pair_rank) as u16 * 220;
+        base + (219 - kicker_combo)
     }
 
     fn comb(n: u8, k: u8) -> u16 {
@@ -361,9 +364,9 @@ mod tables {
         // Combinatorial number system: unique index in [0, 1286] for any
         // 5-card subset of 13 ranks (c1 > c2 > c3 > c4 > c5).
         // Inverted so higher cards = lower rank value (better hand).
-        // Result is in [3326, 4612], safely within valid range [1, 7462].
+        // Result is in [6186, 7462], safely within valid range [1, 7462].
         let index = comb(c1, 5) + comb(c2, 4) + comb(c3, 3) + comb(c4, 2) + comb(c5, 1);
-        3326 + (1286 - index)
+        (6186 + (1286 - index)).min(7462)
     }
 }
 
@@ -541,22 +544,22 @@ mod tests {
             [make_card(1, 6), make_card(2, 5)]
         );
         
-        // Three of a kind (AAA + K + Q)
+        // Three of a kind (AAA + K + Q); hole cards are low so no straight is possible
         let three_of_a_kind = eval.evaluate(
             [make_card(0, 12), make_card(1, 12), make_card(2, 12), make_card(0, 11), make_card(1, 10)],
-            [make_card(2, 9), make_card(3, 8)]
+            [make_card(2, 1), make_card(3, 0)]
         );
-        
-        // Two pair (AA + KK + Q)
+
+        // Two pair (AA + KK + Q); hole cards are low so no straight is possible
         let two_pair = eval.evaluate(
             [make_card(0, 12), make_card(1, 12), make_card(0, 11), make_card(1, 11), make_card(0, 10)],
-            [make_card(2, 9), make_card(3, 8)]
+            [make_card(2, 1), make_card(3, 0)]
         );
-        
-        // One pair (AA + K + Q + J)
+
+        // One pair (AA + K + Q + J); hole cards are low so no straight is possible
         let one_pair = eval.evaluate(
             [make_card(0, 12), make_card(1, 12), make_card(0, 11), make_card(1, 10), make_card(2, 9)],
-            [make_card(3, 8), make_card(0, 7)]
+            [make_card(3, 1), make_card(0, 0)]
         );
         
         // High card (A + K + Q + J + 10, no pair)
@@ -685,7 +688,15 @@ mod tests {
             rank_counts.reverse();
             suit_counts.sort();
             suit_counts.reverse();
-            
+
+            // Check whether any 5-card straight can be formed from the 7 cards.
+            // Build a bitmask of distinct ranks present across all 7 cards.
+            let rank_bits: u16 = all_cards.iter().fold(0u16, |acc, c| acc | (1u16 << (c.value() % 13)));
+            let can_form_straight = (4u8..=12).any(|h| {
+                let mask = 0x1Fu16 << (h - 4);
+                rank_bits & mask == mask
+            }) || (rank_bits & 0x100F == 0x100F); // wheel A-5-4-3-2
+
             // Validate rank matches category
             if rank_counts[0] == 4 {
                 // Four of a kind: should be in range 11-166
@@ -695,25 +706,24 @@ mod tests {
                 // Full house: should be in range 167-322
                 assert!(rank_val >= 167 && rank_val <= 322,
                        "Full house rank {} should be in range [167, 322]", rank_val);
-            } else if rank_counts[0] == 3 && rank_counts[1] < 2 && suit_counts[0] < 5 {
-                // Three of a kind: should be in range 323-1599
-                // (skip when a flush is present or when two sets of trips exist —
-                //  evaluator correctly finds a full house or flush in those cases)
-                assert!(rank_val >= 323 && rank_val <= 1599,
-                       "Three of a kind rank {} should be in range [323, 1599]", rank_val);
-            } else if rank_counts[0] == 2 && rank_counts[1] == 2 && suit_counts[0] < 5 {
-                // Two pair: should be in range 1600-2467
-                // (skip when a flush is present — evaluator correctly prefers it)
-                assert!(rank_val >= 1600 && rank_val <= 2467,
-                       "Two pair rank {} should be in range [1600, 2467]", rank_val);
-            } else if rank_counts[0] == 2 && suit_counts[0] < 5 {
-                // One pair: should be in range 2468-3325
-                // (skip when a flush is present — evaluator correctly prefers it)
+            } else if rank_counts[0] == 3 && rank_counts[1] < 2 && suit_counts[0] < 5 && !can_form_straight {
+                // Three of a kind: should be in range 1610-2467
+                // (skip when a flush or straight is possible — evaluator correctly prefers it)
+                assert!(rank_val >= 1610 && rank_val <= 2467,
+                       "Three of a kind rank {} should be in range [1610, 2467]", rank_val);
+            } else if rank_counts[0] == 2 && rank_counts[1] == 2 && suit_counts[0] < 5 && !can_form_straight {
+                // Two pair: should be in range 2468-3325
+                // (skip when a flush or straight is possible — evaluator correctly prefers it)
                 assert!(rank_val >= 2468 && rank_val <= 3325,
-                       "One pair rank {} should be in range [2468, 3325]", rank_val);
+                       "Two pair rank {} should be in range [2468, 3325]", rank_val);
+            } else if rank_counts[0] == 2 && suit_counts[0] < 5 && !can_form_straight {
+                // One pair: should be in range 3326-6185
+                // (skip when a flush or straight is possible — evaluator correctly prefers it)
+                assert!(rank_val >= 3326 && rank_val <= 6185,
+                       "One pair rank {} should be in range [3326, 6185]", rank_val);
             } else {
-                // High card or flush/straight: should be in range 1-7462
-                // (Flush/straight detection is more complex, so we just check valid range)
+                // High card, flush, or straight (or hand where better combo exists):
+                // just check it's within the valid global range
                 assert!(rank_val >= 1 && rank_val <= 7462,
                        "High card/flush/straight rank {} should be in range [1, 7462]", rank_val);
             }
