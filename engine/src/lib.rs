@@ -11,6 +11,7 @@ pub mod cfr;
 pub mod exploitability;
 pub mod test_tree;
 pub mod equity;
+pub mod range_cfr;
 
 pub use evaluator::{CactusKevEvaluator, benchmark_throughput};
 pub use node::HandEvaluator;
@@ -21,3 +22,4 @@ pub use equity::{
     hand_equity_ip, terminal_ev_ip_showdown, terminal_ev_ip_fold,
     enumerate_combos, range_ev_ip, build_ev_table_from_eval,
 };
+pub use range_cfr::{RangeSolver, MemoryReport};

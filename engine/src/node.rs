@@ -20,6 +20,66 @@ impl Card {
     pub fn value(self) -> u8 {
         self.0
     }
+
+    /// Get the rank index (0=2, 1=3, ..., 8=T, 9=J, 10=Q, 11=K, 12=A)
+    pub fn rank(self) -> u8 {
+        self.0 % 13
+    }
+
+    /// Get the suit index (0=spades, 1=hearts, 2=diamonds, 3=clubs)
+    pub fn suit(self) -> u8 {
+        self.0 / 13
+    }
+
+    /// Parse a card from a 2-character string like "Ah", "Ks", "Td", "2c".
+    ///
+    /// Rank chars: 2-9, T, J, Q, K, A
+    /// Suit chars: s (spades), h (hearts), d (diamonds), c (clubs)
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        let bytes = s.as_bytes();
+        if bytes.len() != 2 {
+            return Err(format!("card must be 2 characters, got '{}'", s));
+        }
+        let rank = match bytes[0] {
+            b'2' => 0, b'3' => 1, b'4' => 2, b'5' => 3, b'6' => 4,
+            b'7' => 5, b'8' => 6, b'9' => 7, b'T' | b't' => 8,
+            b'J' | b'j' => 9, b'Q' | b'q' => 10, b'K' | b'k' => 11,
+            b'A' | b'a' => 12,
+            c => return Err(format!("invalid rank '{}'", c as char)),
+        };
+        let suit = match bytes[1] {
+            b's' | b'S' => 0, b'h' | b'H' => 1,
+            b'd' | b'D' => 2, b'c' | b'C' => 3,
+            c => return Err(format!("invalid suit '{}'", c as char)),
+        };
+        Ok(Card(suit * 13 + rank))
+    }
+
+    /// Parse a board string like "AhKs7d2c5s" into a Vec of Cards.
+    pub fn parse_board(s: &str) -> Result<Vec<Card>, String> {
+        if s.len() % 2 != 0 {
+            return Err(format!("board string must have even length, got {}", s.len()));
+        }
+        let mut cards = Vec::with_capacity(s.len() / 2);
+        for i in (0..s.len()).step_by(2) {
+            cards.push(Card::from_str(&s[i..i + 2])?);
+        }
+        Ok(cards)
+    }
+}
+
+impl std::fmt::Display for Card {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let rank_ch = match self.rank() {
+            0 => '2', 1 => '3', 2 => '4', 3 => '5', 4 => '6',
+            5 => '7', 6 => '8', 7 => '9', 8 => 'T', 9 => 'J',
+            10 => 'Q', 11 => 'K', 12 => 'A', _ => '?',
+        };
+        let suit_ch = match self.suit() {
+            0 => 's', 1 => 'h', 2 => 'd', 3 => 'c', _ => '?',
+        };
+        write!(f, "{}{}", rank_ch, suit_ch)
+    }
 }
 
 /// Hand rank for poker evaluation
@@ -282,5 +342,64 @@ impl GameTree {
 impl Default for GameTree {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_card_from_str_ah() {
+        let c = Card::from_str("Ah").unwrap();
+        assert_eq!(c.value(), 1 * 13 + 12); // suit=1(hearts), rank=12(A) = 25
+    }
+
+    #[test]
+    fn test_card_from_str_2c() {
+        let c = Card::from_str("2c").unwrap();
+        assert_eq!(c.value(), 3 * 13 + 0); // suit=3(clubs), rank=0(2) = 39
+    }
+
+    #[test]
+    fn test_card_from_str_ts() {
+        let c = Card::from_str("Ts").unwrap();
+        assert_eq!(c.value(), 0 * 13 + 8); // suit=0(spades), rank=8(T) = 8
+    }
+
+    #[test]
+    fn test_card_display_roundtrip() {
+        for v in 0..52u8 {
+            let card = Card::new(v);
+            let s = format!("{}", card);
+            let parsed = Card::from_str(&s).unwrap();
+            assert_eq!(card, parsed, "roundtrip failed for value {}: '{}'", v, s);
+        }
+    }
+
+    #[test]
+    fn test_parse_board() {
+        let board = Card::parse_board("AhKs7d2c5s").unwrap();
+        assert_eq!(board.len(), 5);
+        assert_eq!(board[0], Card::from_str("Ah").unwrap());
+        assert_eq!(board[1], Card::from_str("Ks").unwrap());
+        assert_eq!(board[2], Card::from_str("7d").unwrap());
+        assert_eq!(board[3], Card::from_str("2c").unwrap());
+        assert_eq!(board[4], Card::from_str("5s").unwrap());
+    }
+
+    #[test]
+    fn test_card_from_str_invalid() {
+        assert!(Card::from_str("Xh").is_err());
+        assert!(Card::from_str("Ax").is_err());
+        assert!(Card::from_str("A").is_err());
+        assert!(Card::from_str("Ahh").is_err());
+    }
+
+    #[test]
+    fn test_card_rank_suit() {
+        let c = Card::new(25); // Ah: suit=1, rank=12
+        assert_eq!(c.rank(), 12);
+        assert_eq!(c.suit(), 1);
     }
 }
