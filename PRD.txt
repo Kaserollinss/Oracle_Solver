@@ -232,7 +232,7 @@ Deliverable: Mac app capable of solving standard flop tree.
 🔵 PHASE 5 — Core Feature Expansion
 
 Rake modeling, Asymmetric stacks, Node locking, Strategy export format, Batch solving, Aggregation engine.
-
+Chance-node parallelism  with storage partitioning.
 🔵 PHASE 6 — Differentiation Layer
 
 Hotness metric, Advanced visualizations, Range vs range explorer, Blocker analysis, Drill mode prototype.
