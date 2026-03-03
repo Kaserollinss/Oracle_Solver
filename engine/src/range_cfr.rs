@@ -327,8 +327,9 @@ impl RangeSolver {
             Node::Terminal { .. } => {
                 let folder = match node { Node::Terminal { folder, .. } => *folder, _ => unreachable!() };
                 let pot = match node { Node::Terminal { pot, .. } => *pot, _ => unreachable!() };
+                let stacks = match node { Node::Terminal { stacks, .. } => *stacks, _ => unreachable!() };
                 let board: Vec<Card> = node.board().to_vec();
-                self.compute_terminal_ev_ip(&board, folder, pot, reach_oop)
+                self.compute_terminal_ev_ip(&board, folder, pot, stacks, reach_oop)
             }
 
             Node::Decision { .. } => {
@@ -432,8 +433,9 @@ impl RangeSolver {
             Node::Terminal { .. } => {
                 let folder = match node { Node::Terminal { folder, .. } => *folder, _ => unreachable!() };
                 let pot = match node { Node::Terminal { pot, .. } => *pot, _ => unreachable!() };
+                let stacks = match node { Node::Terminal { stacks, .. } => *stacks, _ => unreachable!() };
                 let board: Vec<Card> = node.board().to_vec();
-                self.compute_terminal_ev_oop_perspective(&board, folder, pot, reach_ip)
+                self.compute_terminal_ev_oop_perspective(&board, folder, pot, stacks, reach_ip)
             }
 
             Node::Decision { .. } => {
@@ -524,25 +526,26 @@ impl RangeSolver {
     /// Compute terminal EV from IP's perspective.
     ///
     /// Returns `ev[ip_combo_idx]` = Σ_j(reach_oop[j] * payoff_IP(ip_combo, oop_combo_j))
+    ///
+    /// Payoff uses net convention: `pot * share + stacks_ip` where share is IP's
+    /// fraction of the pot. The stacks term captures the cost of prior actions,
+    /// ensuring fold EV correctly reflects that calling costs chips.
     fn compute_terminal_ev_ip(
         &self,
         board: &[Card],
         folder: Option<Player>,
         pot: f64,
+        stacks: [f64; 2],
         reach_oop: &[f64],
     ) -> Vec<f64> {
         let nc = self.indexer.num_combos();
         let mut ev = vec![0.0; nc];
+        let ip_stack = stacks[0];
 
         match folder {
             Some(Player::IP) => {
-                // IP folds → IP gets 0.0 per combo
-                // ev[i] = 0.0 * Σ_j(reach_oop[j] for non-conflicting j) = 0.0
-                // (already zero)
-            }
-            Some(Player::OOP) => {
-                // OOP folds → IP wins pot
-                // ev[i] = pot * Σ_j(reach_oop[j] for non-conflicting j)
+                // IP folds → IP keeps remaining stack (0 from pot)
+                // payoff_ip = 0 + ip_stack = ip_stack
                 for i in 0..nc {
                     let mut opp_reach_sum = 0.0;
                     for j in 0..nc {
@@ -550,7 +553,21 @@ impl RangeSolver {
                             opp_reach_sum += reach_oop[j];
                         }
                     }
-                    ev[i] = pot * opp_reach_sum;
+                    ev[i] = ip_stack * opp_reach_sum;
+                }
+            }
+            Some(Player::OOP) => {
+                // OOP folds → IP wins pot + keeps stack
+                // payoff_ip = pot + ip_stack
+                let payoff = pot + ip_stack;
+                for i in 0..nc {
+                    let mut opp_reach_sum = 0.0;
+                    for j in 0..nc {
+                        if !self.conflict_table[i * nc + j] {
+                            opp_reach_sum += reach_oop[j];
+                        }
+                    }
+                    ev[i] = payoff * opp_reach_sum;
                 }
             }
             None => {
@@ -574,7 +591,7 @@ impl RangeSolver {
                                 std::cmp::Ordering::Greater => 0.0, // OOP wins
                                 std::cmp::Ordering::Equal => 0.5,   // tie
                             };
-                            ev[i] += reach_oop[j] * pot * equity;
+                            ev[i] += reach_oop[j] * (pot * equity + ip_stack);
                         }
                     }
                 } else {
@@ -586,7 +603,7 @@ impl RangeSolver {
                                 opp_reach_sum += reach_oop[j];
                             }
                         }
-                        ev[i] = pot * 0.5 * opp_reach_sum;
+                        ev[i] = (pot * 0.5 + ip_stack) * opp_reach_sum;
                     }
                 }
             }
@@ -598,21 +615,23 @@ impl RangeSolver {
     /// Compute terminal EV from OOP's perspective (indexed by OOP combo).
     ///
     /// Returns `ev[oop_combo_idx]` = Σ_i(reach_ip[i] * payoff_OOP(ip_combo_i, oop_combo))
-    /// where payoff_OOP = pot - payoff_IP for zero-sum (both invested equally).
+    /// Uses net convention: `pot * oop_share + stacks_oop`.
     fn compute_terminal_ev_oop_perspective(
         &self,
         board: &[Card],
         folder: Option<Player>,
         pot: f64,
+        stacks: [f64; 2],
         reach_ip: &[f64],
     ) -> Vec<f64> {
         let nc = self.indexer.num_combos();
         let mut ev = vec![0.0; nc];
+        let oop_stack = stacks[1];
 
         match folder {
             Some(Player::IP) => {
-                // IP folds → OOP wins pot
-                // ev_oop[j] = pot * Σ_i(reach_ip[i]) for non-conflicting i
+                // IP folds → OOP wins pot + keeps stack
+                let payoff = pot + oop_stack;
                 for j in 0..nc {
                     let mut ip_reach_sum = 0.0;
                     for i in 0..nc {
@@ -620,12 +639,20 @@ impl RangeSolver {
                             ip_reach_sum += reach_ip[i];
                         }
                     }
-                    ev[j] = pot * ip_reach_sum;
+                    ev[j] = payoff * ip_reach_sum;
                 }
             }
             Some(Player::OOP) => {
-                // OOP folds → OOP gets 0
-                // (already zero)
+                // OOP folds → OOP keeps remaining stack (0 from pot)
+                for j in 0..nc {
+                    let mut ip_reach_sum = 0.0;
+                    for i in 0..nc {
+                        if !self.conflict_table[i * nc + j] {
+                            ip_reach_sum += reach_ip[i];
+                        }
+                    }
+                    ev[j] = oop_stack * ip_reach_sum;
+                }
             }
             None => {
                 // Showdown — use precomputed ranks
@@ -643,13 +670,12 @@ impl RangeSolver {
                                 continue;
                             }
                             let ip_rank = ranks[i];
-                            // OOP equity = 1 - IP equity
                             let oop_equity = match ip_rank.cmp(&oop_rank) {
-                                std::cmp::Ordering::Less => 0.0,    // IP wins → OOP gets 0
-                                std::cmp::Ordering::Greater => 1.0, // OOP wins → OOP gets pot
+                                std::cmp::Ordering::Less => 0.0,    // IP wins
+                                std::cmp::Ordering::Greater => 1.0, // OOP wins
                                 std::cmp::Ordering::Equal => 0.5,   // tie
                             };
-                            ev[j] += reach_ip[i] * pot * oop_equity;
+                            ev[j] += reach_ip[i] * (pot * oop_equity + oop_stack);
                         }
                     }
                 } else {
@@ -660,7 +686,7 @@ impl RangeSolver {
                                 ip_reach_sum += reach_ip[i];
                             }
                         }
-                        ev[j] = pot * 0.5 * ip_reach_sum;
+                        ev[j] = (pot * 0.5 + oop_stack) * ip_reach_sum;
                     }
                 }
             }
@@ -673,22 +699,22 @@ impl RangeSolver {
     ///
     /// Returns `ev[oop_combo_idx]` = Σ_i(reach_ip[i] * payoff_IP(ip_combo_i, oop_combo))
     /// Used by the OOP best-response traversal for exploitability calculation.
+    /// Uses net convention: `pot * ip_share + stacks_ip`.
     fn compute_terminal_ev_oop_ip_payoff(
         &self,
         board: &[Card],
         folder: Option<Player>,
         pot: f64,
+        stacks: [f64; 2],
         reach_ip: &[f64],
     ) -> Vec<f64> {
         let nc = self.indexer.num_combos();
         let mut ev = vec![0.0; nc];
+        let ip_stack = stacks[0];
 
         match folder {
             Some(Player::IP) => {
-                // IP folds → payoff_IP = 0 → ev[j] = 0
-            }
-            Some(Player::OOP) => {
-                // OOP folds → payoff_IP = pot
+                // IP folds → IP keeps remaining stack
                 for j in 0..nc {
                     let mut ip_reach_sum = 0.0;
                     for i in 0..nc {
@@ -696,7 +722,20 @@ impl RangeSolver {
                             ip_reach_sum += reach_ip[i];
                         }
                     }
-                    ev[j] = pot * ip_reach_sum;
+                    ev[j] = ip_stack * ip_reach_sum;
+                }
+            }
+            Some(Player::OOP) => {
+                // OOP folds → IP wins pot + keeps stack
+                let payoff = pot + ip_stack;
+                for j in 0..nc {
+                    let mut ip_reach_sum = 0.0;
+                    for i in 0..nc {
+                        if !self.conflict_table[i * nc + j] {
+                            ip_reach_sum += reach_ip[i];
+                        }
+                    }
+                    ev[j] = payoff * ip_reach_sum;
                 }
             }
             None => {
@@ -712,7 +751,7 @@ impl RangeSolver {
                                 std::cmp::Ordering::Greater => 0.0,
                                 std::cmp::Ordering::Equal => 0.5,
                             };
-                            ev[j] += reach_ip[i] * pot * ip_equity;
+                            ev[j] += reach_ip[i] * (pot * ip_equity + ip_stack);
                         }
                     }
                 } else {
@@ -721,7 +760,7 @@ impl RangeSolver {
                         for i in 0..nc {
                             if !self.conflict_table[i * nc + j] { ip_reach_sum += reach_ip[i]; }
                         }
-                        ev[j] = pot * 0.5 * ip_reach_sum;
+                        ev[j] = (pot * 0.5 + ip_stack) * ip_reach_sum;
                     }
                 }
             }
@@ -763,13 +802,9 @@ impl RangeSolver {
         let oop_br_total: f64 = oop_br_ev.iter().sum();
 
         if num_pairs > 0.0 {
-            // exploit = (IP BR value - OOP BR value) / num_pairs
-            // ip_br_gain = (IP BR - game value) / num_pairs
-            // oop_br_gain = (game value - OOP BR) / num_pairs
-            // We don't need avg separately: exploit = ip_br_gain + oop_br_gain
-            let exploit = (ip_br_total - oop_br_total) / num_pairs;
-            // Split roughly: attribute half to each player as approximation
-            // (exact split requires avg_ev computation)
+            let ip_br_avg = ip_br_total / num_pairs;
+            let oop_br_avg = oop_br_total / num_pairs;
+            let exploit = ip_br_avg - oop_br_avg;
             let ip_br_gain = (exploit / 2.0).max(0.0);
             let oop_br_gain = (exploit / 2.0).max(0.0);
             (exploit.max(0.0), ip_br_gain, oop_br_gain)
@@ -787,11 +822,12 @@ impl RangeSolver {
         let node = self.tree.get(node_id).expect("invalid node id");
 
         match node {
-            Node::Terminal { folder, pot, board, .. } => {
+            Node::Terminal { folder, pot, stacks, board, .. } => {
                 let folder = *folder;
                 let pot = *pot;
+                let stacks = *stacks;
                 let board = board.clone();
-                self.compute_terminal_ev_ip(&board, folder, pot, reach_oop)
+                self.compute_terminal_ev_ip(&board, folder, pot, stacks, reach_oop)
             }
 
             Node::Decision { player, children, .. } => {
@@ -883,12 +919,13 @@ impl RangeSolver {
         let node = self.tree.get(node_id).expect("invalid node id");
 
         match node {
-            Node::Terminal { folder, pot, board, .. } => {
+            Node::Terminal { folder, pot, stacks, board, .. } => {
                 let folder = *folder;
                 let pot = *pot;
+                let stacks = *stacks;
                 let board = board.clone();
                 // Terminal EV: IP payoff indexed by OOP combo
-                self.compute_terminal_ev_oop_ip_payoff(&board, folder, pot, reach_ip)
+                self.compute_terminal_ev_oop_ip_payoff(&board, folder, pot, stacks, reach_ip)
             }
 
             Node::Decision { player, children, .. } => {
@@ -1263,5 +1300,24 @@ mod tests {
         let report = solver.memory_usage();
         assert!(report.total_bytes > 0);
         assert!(report.storage_bytes > 0);
+    }
+
+    #[test]
+    fn test_small_tree_convergence_detailed() {
+        let board = river_board();
+        let tree = small_river_tree();
+        let mut solver = RangeSolver::new(tree, &board);
+        let (e0, _, _) = solver.compute_exploitability();
+        eprintln!("small tree: iter 0: exploit={e0:.4}");
+
+        for i in 1..=500 {
+            solver.run_iteration();
+            if i % 100 == 0 || i == 1 || i == 10 || i == 50 {
+                let (e, _, _) = solver.compute_exploitability();
+                eprintln!("small tree: iter {i}: exploit={e:.4}");
+            }
+        }
+        let (final_e, _, _) = solver.compute_exploitability();
+        assert!(final_e < 1.0, "small tree should converge: {final_e:.4}");
     }
 }

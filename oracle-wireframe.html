@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aura Solver — UX Optimized</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060608;
+  --s1: #0c0d12;
+  --s2: #12141c;
+  --s3: #191c27;
+  --border: #1c1f30;
+  --border2: #252a3f;
+  
+  /* Default Action Colors */
+  --green: #4ade80;   /* Check/Call */
+  --accent2: #38bdf8; /* Bet 33% */
+  --accent: #c084fc;  /* Bet 75% */
+  --yellow: #facc15;  /* Raise */
+  --red: #f87171;     /* Fold / All-in */
+  
+  --accent3: #f472b6;
+  --text: #e2e6f3;
+  --text2: #a0a8c0;
+  --muted: #484e6a;
+  --glow: rgba(192,132,252,0.08);
+}
+
+/* Colorblind Accessible Palette (Okabe-Ito inspired) */
+body.colorblind {
+  --green: #0072B2;   /* Blue */
+  --accent2: #E69F00; /* Orange */
+  --accent: #CC79A7;  /* Pink/Purple */
+  --yellow: #F0E442;  /* Yellow */
+  --red: #D55E00;     /* Vermillion */
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;height:100vh;display:flex;overflow:hidden;}
+
+/* APP SIDEBAR */
+.sidebar {
+  width:200px;background:var(--s1);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;z-index:50;
+}
+.sidebar-logo {
+  padding:16px 16px 12px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);
+}
+.logo-mark {
+  width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--accent3));
+  border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-family:'Instrument Serif',serif;font-style:italic;font-size:16px;color:#fff;
+}
+.logo-text {font-size:13px;font-weight:700;color:var(--text);letter-spacing:.5px;}
+.logo-ver {font-size:9px;color:var(--muted);margin-left:auto;font-family:'IBM Plex Mono',monospace;}
+
+.sidebar-section {padding:8px 0;border-bottom:1px solid var(--border);}
+.sidebar-section-label {font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);padding:4px 14px 6px;}
+.nav-item {
+  display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;
+  font-size:12px;color:var(--text2);transition:all .15s;border-left:2px solid transparent;
+}
+.nav-item:hover{color:var(--text);background:var(--s2);}
+.nav-item.active{color:var(--accent);background:var(--glow);border-left-color:var(--accent);}
+.nav-item .ni-icon{font-size:13px;width:16px;text-align:center;flex-shrink:0;}
+.nav-item .ni-badge{margin-left:auto;padding:1px 6px;border-radius:10px;font-size:9px;background:rgba(192,132,252,0.15);color:var(--accent);font-family:'IBM Plex Mono',monospace;}
+
+.sidebar-bottom{margin-top:auto;border-top:1px solid var(--border);padding:10px 14px;}
+.user-chip{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;}
+.avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));flex-shrink:0;}
+.user-name{font-size:11px;color:var(--text2);}
+.plan-badge{margin-left:auto;font-size:9px;padding:1px 6px;background:rgba(250,204,21,0.15);color:var(--yellow);border-radius:10px;font-family:'IBM Plex Mono',monospace;}
+
+/* MAIN AREA */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+/* TOPBAR */
+.topbar{
+  height:44px;background:var(--s1);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;
+}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+.breadcrumb .bc-active{color:var(--text);font-weight:500;}
+.topbar-divider{width:1px;height:16px;background:var(--border2);}
+.session-tabs{display:flex;gap:0;}
+.stab{
+  padding:4px 12px;font-size:11px;color:var(--muted);cursor:pointer;
+  border:1px solid transparent;border-radius:4px;transition:all .15s;
+  display:flex;align-items:center;gap:5px;
+}
+.stab.active{color:var(--accent);background:rgba(192,132,252,0.1);border-color:rgba(192,132,252,0.2);}
+.stab:hover{color:var(--text2);}
+.stab .stab-x{color:var(--muted);font-size:10px;line-height:1;}
+.stab .stab-x:hover{color:var(--red);}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:6px;}
+.meta-chip{font-size:10px;font-family:'IBM Plex Mono',monospace;padding:3px 8px;border-radius:3px;}
+.meta-green{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);}
+.meta-purple{background:rgba(192,132,252,0.1);color:var(--accent);border:1px solid rgba(192,132,252,0.2);}
+.btn{padding:5px 12px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px;}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600;}
+.btn-p:hover{background:#b070e8;color:#000;border-color:#b070e8;}
+
+/* WORK AREA */
+.work-area{flex:1;display:flex;overflow:hidden;}
+
+/* CONFIG RAIL - Optimized Workflow */
+.config-rail{
+  width:240px;background:var(--s1);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+}
+.cr-scroll {
+  flex:1; overflow-y:auto; padding-bottom:16px;
+}
+.cr-section{border-bottom:1px solid var(--border);padding:14px;}
+.cr-title{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;}
+
+/* BOARD */
+.board-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:4px;}
+.card{
+  height:46px;border-radius:4px;background:var(--s2);border:1px solid var(--border2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .15s;
+}
+.card:hover{border-color:var(--accent);background:var(--s3);}
+.card .cr{font-size:14px;font-weight:700;font-family:'IBM Plex Mono',monospace;line-height:1;}
+.card .cs{font-size:10px;line-height:1;}
+.card.red .cr,.card.red .cs{color:var(--red);}
+.card.empty-c{color:var(--muted);font-size:18px;}
+.board-labels{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+.bl{font-size:8px;color:var(--muted);text-align:center;}
+
+/* RANGES */
+.range-btn-wrap { display:flex; gap:8px; margin-bottom:8px; }
+.range-editor-btn {
+  flex:1; background:var(--s2); border:1px solid var(--border2); border-radius:4px;
+  padding:8px; cursor:pointer; transition:all .15s; text-align:left;
+}
+.range-editor-btn:hover { border-color:var(--accent); background:var(--s3); }
+.re-title { font-size:11px; font-weight:600; color:var(--text); margin-bottom:2px; }
+.re-subtitle { font-size:9px; color:var(--muted); font-family:'IBM Plex Mono', monospace;}
+
+/* FIELDS */
+.f{margin-bottom:10px;}
+.f label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);display:block;margin-bottom:4px;}
+.f select,.f input[type=number]{
+  width:100%;background:var(--s2);border:1px solid var(--border2);color:var(--text);
+  padding:6px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;
+  appearance:none;
+}
+.f select:focus,.f input:focus{outline:none;border-color:var(--accent);}
+
+/* BET SIZING */
+.bet-pills{display:flex;gap:4px;flex-wrap:wrap;}
+.pill{
+  padding:4px 10px;border-radius:4px;background:var(--s2);border:1px solid var(--border2);
+  font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .1s;color:var(--muted);
+}
+.pill.on{background:rgba(192,132,252,0.15);border-color:var(--accent);color:var(--accent);}
+.pill:hover{border-color:var(--border2);color:var(--text2);}
+
+/* ADVANCED SETTINGS ACCORDION */
+.adv-settings {
+  padding:14px; border-bottom:1px solid var(--border);
+}
+.adv-settings summary {
+  font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text2);
+  cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px;
+}
+.adv-settings summary::before {
+  content: "▶"; font-size:8px; transition:transform 0.2s; color:var(--muted);
+}
+.adv-settings[open] summary::before { transform: rotate(90deg); }
+.adv-settings[open] summary { margin-bottom: 12px; color:var(--accent); }
+
+/* STICKY SOLVE BTN */
+.solve-area{
+  padding:14px; background:var(--s1); border-top:1px solid var(--border);
+  flex-shrink:0; box-shadow:0 -4px 12px rgba(0,0,0,0.2); z-index:10;
+}
+.solve-btn{
+  width:100%;padding:10px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--accent3));
+  border:none;color:#000;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
+  font-size:12px;cursor:pointer;transition:all .2s;letter-spacing:.5px;
+}
+.solve-btn:hover{opacity:.9; transform:translateY(-1px);}
+.solve-btn.running{background:transparent;border:1px solid var(--accent);color:var(--accent);cursor:wait;transform:none;}
+.prog-track{height:3px;background:var(--s3);border-radius:2px;overflow:hidden;margin-top:8px;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width .5s;}
+.prog-row{display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+
+/* CONTENT */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* TABS */
+.tabbar{display:flex;background:var(--s1);border-bottom:1px solid var(--border);padding:0 14px;flex-shrink:0;}
+.tb{padding:12px 16px;font-size:11px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;font-weight:500;}
+.tb.active{color:var(--text);border-bottom-color:var(--accent);}
+.tb:hover{color:var(--text2);}
+.tab-spacer{flex:1;}
+
+/* PANELS */
+.panel{flex:1;overflow:hidden;display:none;}
+.panel.active{display:flex;}
+
+/* SPLIT PANE: STRATEGY & TREE */
+#stratTreePanel { display:flex; flex-direction:row; background:var(--bg); }
+
+/* TREE COLUMN (Left) */
+.tree-col { width:240px; background:var(--s1); border-right:1px solid var(--border); padding:14px; overflow-y:auto; flex-shrink:0; }
+.tree-item{
+  padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;
+  color:var(--text2);transition:all .1s;display:flex;align-items:center;gap:6px;
+  margin-bottom:2px;border:1px solid transparent;
+}
+.tree-item:hover{background:var(--s2);color:var(--text);}
+.tree-item.active{background:rgba(192,132,252,0.1);border-color:rgba(192,132,252,0.2);color:var(--accent);}
+.tree-badge{padding:2px 6px;border-radius:3px;font-size:9px;font-family:'IBM Plex Mono',monospace;}
+.tree-sub{padding-left:14px; border-left:1px dashed var(--border2); margin-left:6px; margin-bottom:4px;}
+
+/* STRATEGY MAIN COLUMN (Center) */
+.strat-main-col { flex:1; padding:16px; overflow:auto; display:flex; flex-direction:column; }
+.strat-controls{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.toggle-group{display:flex;gap:0;}
+.tg-btn{
+  padding:5px 14px;font-size:10px;border:1px solid var(--border2);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;font-weight:500;
+}
+.tg-btn:first-child{border-radius:4px 0 0 4px;}
+.tg-btn:last-child{border-radius:0 4px 4px 0;border-left:none;}
+.tg-btn.active{background:rgba(192,132,252,0.15);border-color:var(--accent);color:var(--text);}
+.tg-btn:hover:not(.active){color:var(--text2);}
+
+/* KEYBOARD HINTS */
+.kbd-hint { font-family:'IBM Plex Mono',monospace; font-size:8px; background:var(--s3); padding:2px 4px; border-radius:2px; margin-left:4px; color:var(--muted); border:1px solid var(--border2); }
+
+.matrix-wrap{display:flex;flex-direction:column;gap:2px;flex-shrink:0; max-width: 580px;}
+.mrow{display:flex;gap:2px;}
+.mrow-label{width:16px;font-size:8px;color:var(--muted);display:flex;align-items:center;font-family:'IBM Plex Mono',monospace;flex-shrink:0;}
+.mcells{display:grid;grid-template-columns:repeat(13,1fr);gap:2px;flex:1;}
+.mcell{
+  aspect-ratio:1;border-radius:2px;cursor:pointer;position:relative;
+  overflow:hidden;transition:transform .1s,box-shadow .1s;
+}
+.mcell:hover{transform:scale(1.2);z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.6); border:1px solid rgba(255,255,255,0.2);}
+.mcell.pinned { border: 2px solid #fff; z-index: 5; transform:scale(1.1); box-shadow:0 0 10px var(--accent); }
+.stripe{position:absolute;bottom:0;left:0;right:0;height:4px;display:flex;}
+
+/* STRAT RIGHT COLUMN (Right) */
+.strat-right { width:240px; background:var(--s1); border-left:1px solid var(--border); padding:16px; flex-shrink:0; overflow-y:auto; }
+.sr-title{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.sr-hand{font-size:26px;font-weight:700;font-family:'IBM Plex Mono',monospace;margin-bottom:4px;}
+.sr-ev{font-size:12px;color:var(--muted);margin-bottom:14px;}
+.sr-ev em{font-style:normal;font-family:'IBM Plex Mono',monospace;font-weight:600;}
+.sr-action{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.sra-label{font-size:10px;width:54px;flex-shrink:0;}
+.sra-track{flex:1;height:4px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.sra-fill{height:100%;border-radius:2px;}
+.sra-pct{font-size:10px;font-family:'IBM Plex Mono',monospace;width:34px;text-align:right;}
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.stat-label{color:var(--muted);}
+.stat-val{font-family:'IBM Plex Mono',monospace;color:var(--text);}
+
+/* FLOATING HOVER CARD */
+.hover-card {
+  position:fixed;pointer-events:none;z-index:100;
+  background:var(--s2);border:1px solid var(--border2);border-radius:6px;
+  padding:10px 14px;min-width:170px;display:none;
+  box-shadow:0 8px 32px rgba(0,0,0,.8);
+}
+.hover-card.is-pinned { pointer-events:auto; border-color:var(--accent); }
+.hc-hand{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
+.pin-icon { font-size:10px; color:var(--accent); display:none; }
+.hover-card.is-pinned .pin-icon { display:block; }
+
+.hc-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.hc-label{font-size:10px;width:50px;color:var(--text2);}
+.hc-bar{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.hc-fill{height:100%;border-radius:2px;}
+.hc-pct{font-size:10px;font-family:'IBM Plex Mono',monospace;width:28px;text-align:right;}
+
+/* AGGREGATION PANEL Placeholder */
+#aggPanel, #blockerPanel, #comparePanel { padding:20px; overflow-y:auto; flex-direction:column; gap:20px; }
+.placeholder-box { border:1px dashed var(--border2); border-radius:8px; display:flex; align-items:center; justify-content:center; height:200px; color:var(--muted); font-size:12px; }
+
+/* LEGEND */
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text2);}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+
+/* STATUS BAR */
+.statusbar{
+  height:28px;background:var(--s1);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:24px;flex-shrink:0;z-index:60;
+}
+.si{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.si em{color:var(--green);font-style:normal;}
+.si .dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:6px;}
+.si .dot.on{background:var(--green);animation:pulse 2s infinite;}
+.si .dot.off{background:var(--muted);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.toast{
+  position:fixed;bottom:40px;left:50%;transform:translateX(-50%);
+  background:var(--s2);border:1px solid var(--accent);color:var(--accent);
+  padding:10px 24px;border-radius:6px;font-size:12px;font-family:'IBM Plex Mono',monospace;
+  opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;
+}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">A</div>
+    <div>
+      <div class="logo-text">Aura Solver</div>
+    </div>
+    <div class="logo-ver">v2.1 UX</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Workbench</div>
+    <div class="nav-item active"><span class="ni-icon">⬡</span>Session Setup</div>
+    <div class="nav-item" onclick="toast('Batch processing manager')"><span class="ni-icon">⊞</span>Batch Queue<span class="ni-badge">3</span></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Library</div>
+    <div class="nav-item" onclick="toast('Range library opened')"><span class="ni-icon">📁</span>Saved Ranges</div>
+    <div class="nav-item" onclick="toast('History opened')"><span class="ni-icon">🕒</span>Solve History</div>
+  </div>
+
+  <div class="sidebar-bottom">
+    <div class="user-chip">
+      <div class="avatar"></div>
+      <div class="user-name">alex@poker.io</div>
+      <div class="plan-badge">PRO</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="breadcrumb">
+      <span>Sessions</span><span style="color:var(--muted)">›</span>
+      <span class="bc-active">BTN vs BB Study</span>
+    </div>
+    <div class="topbar-divider"></div>
+    <div class="session-tabs">
+      <div class="stab active">Kh7d2c <span class="stab-x" onclick="toast('Close tab')">×</span></div>
+      <div class="stab">Ah8c3s <span class="stab-x" onclick="toast('Close tab')">×</span></div>
+      <div class="stab" style="color:var(--muted);font-size:14px;padding:4px 10px" onclick="toast('New tree tab')">+</div>
+    </div>
+    <div class="topbar-right">
+      <div class="meta-chip meta-green" id="statusChip">SOLVED</div>
+      <div class="meta-chip meta-purple" id="exploitChip">0.31% pot</div>
+      <div class="topbar-divider"></div>
+      <button class="btn" onclick="toggleColorblind()" title="Toggle Colorblind Palette">👁️ Contrast</button>
+      <button class="btn btn-p" onclick="toast('Export Options')">Export</button>
+    </div>
+  </div>
+
+  <div class="work-area">
+
+    <div class="config-rail">
+      <div class="cr-scroll">
+        
+        <div class="cr-section">
+          <div class="cr-title">Board Setup</div>
+          <div class="board-grid">
+            <div class="card black" onclick="toast('Card picker')"><div class="cr">K</div><div class="cs">♣</div></div>
+            <div class="card red" onclick="toast('Card picker')"><div class="cr">7</div><div class="cs">♥</div></div>
+            <div class="card black" onclick="toast('Card picker')"><div class="cr">2</div><div class="cs">♠</div></div>
+            <div class="card red" onclick="toast('Card picker')"><div class="cr">J</div><div class="cs">♦</div></div>
+            <div class="card empty-c" onclick="toast('Card picker')">+</div>
+          </div>
+          <div class="board-labels">
+            <div class="bl">F</div><div class="bl">F</div><div class="bl">F</div>
+            <div class="bl">T</div><div class="bl">R</div>
+          </div>
+        </div>
+
+        <div class="cr-section">
+          <div class="cr-title">Player Ranges</div>
+          <div class="range-btn-wrap">
+            <button class="range-editor-btn" onclick="toast('Opening IP Range Editor')">
+              <div class="re-title">BTN (IP)</div>
+              <div class="re-subtitle">42.5% VPIP</div>
+            </button>
+            <button class="range-editor-btn" onclick="toast('Opening OOP Range Editor')">
+              <div class="re-title">BB (OOP)</div>
+              <div class="re-subtitle">68.2% Call</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="cr-section">
+          <div class="cr-title">Game Context</div>
+          <div class="f">
+            <label>Format</label>
+            <select><option>Cash Game</option><option>MTT (ICM)</option></select>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <div class="f" style="flex:1;">
+              <label>Stack (bb)</label>
+              <input type="number" value="100" />
+            </div>
+            <div class="f" style="flex:1;">
+              <label>Pot (bb)</label>
+              <input type="number" value="10" />
+            </div>
+          </div>
+        </div>
+
+        <div class="cr-section">
+          <div class="cr-title">Bet Sizing 
+            <span style="font-size:8px; cursor:pointer; color:var(--accent)" onclick="toast('Switch to Geometric')">Use Geo</span>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:4px">Flop (IP)</div>
+          <div class="bet-pills" style="margin-bottom:8px">
+            <div class="pill on" onclick="this.classList.toggle('on')">33%</div>
+            <div class="pill on" onclick="this.classList.toggle('on')">75%</div>
+            <div class="pill" onclick="this.classList.toggle('on')">All-in</div>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:4px">Turn (IP)</div>
+          <div class="bet-pills" style="margin-bottom:8px">
+            <div class="pill on" onclick="this.classList.toggle('on')">50%</div>
+            <div class="pill on" onclick="this.classList.toggle('on')">100%</div>
+            <div class="pill" onclick="this.classList.toggle('on')">All-in</div>
+          </div>
+        </div>
+
+        <details class="adv-settings">
+          <summary>Advanced Engine Settings</summary>
+          <div class="f">
+            <label>Target Exploitability</label>
+            <select><option>0.1% pot</option><option selected>0.25% pot</option><option>0.5%</option></select>
+          </div>
+          <div class="f">
+            <label>Iterations</label>
+            <select><option>100K</option><option selected>1M</option><option>10M</option></select>
+          </div>
+          <div class="f">
+            <label>Algorithm</label>
+            <select><option selected>CFR+</option><option>Linear CFR</option></select>
+          </div>
+          <div class="f" style="margin-bottom:0">
+            <label>Threads</label>
+            <select><option>4</option><option selected>8</option><option>16</option></select>
+          </div>
+        </details>
+
+      </div>
+      
+      <div class="solve-area">
+        <button class="solve-btn" id="solveBtn" onclick="startSolve()">▶ Run Solver</button>
+        <div id="solveProgress" style="display:none">
+          <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+          <div class="prog-row"><span id="progMsg">Initializing...</span><span id="progPct">0%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="tabbar">
+        <div class="tb active" onclick="switchTab('stratTree',this)">Analysis Matrix</div>
+        <div class="tb" onclick="switchTab('agg',this)">Aggregation</div>
+        <div class="tb" onclick="switchTab('blocker',this)">Blocker Impact</div>
+        <div class="tb" onclick="switchTab('compare',this)">Compare Trees</div>
+      </div>
+
+      <div class="panel active" id="stratTreePanel">
+        
+        <div class="tree-col">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px">Game Tree</div>
+          
+          <div class="tree-item active" onclick="selectNode(this,'IP Root (Flop)')">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px">ROOT</span>
+            <span style="font-size:10px;color:var(--muted);margin-left:auto;">Flop</span>
+          </div>
+          <div class="tree-sub">
+            <div class="tree-item" onclick="selectNode(this,'IP Check → Flop')">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green)">CHECK</span>
+              <div class="tree-badge" style="background:rgba(74,222,128,0.1);color:var(--green);margin-left:auto;">38%</div>
+            </div>
+            <div class="tree-sub" style="display:none;">
+              </div>
+            
+            <div class="tree-item" onclick="selectNode(this,'IP Bet 33% → Flop')">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent2)">BET 33%</span>
+              <div class="tree-badge" style="background:rgba(56,189,248,0.1);color:var(--accent2);margin-left:auto;">42%</div>
+            </div>
+            <div class="tree-sub">
+              <div class="tree-item" onclick="selectNode(this,'OOP Fold')"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red)">FOLD</span></div>
+              <div class="tree-item" onclick="selectNode(this,'OOP Call')"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green)">CALL</span></div>
+              <div class="tree-item" onclick="selectNode(this,'OOP Raise')"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--yellow)">RAISE</span></div>
+            </div>
+
+            <div class="tree-item" onclick="selectNode(this,'IP Bet 75% → Flop')">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent)">BET 75%</span>
+              <div class="tree-badge" style="background:rgba(192,132,252,0.1);color:var(--accent);margin-left:auto;">18%</div>
+            </div>
+            
+            <div class="tree-item" onclick="selectNode(this,'IP All-in')">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red)">ALL-IN</span>
+              <div class="tree-badge" style="background:rgba(248,113,113,0.1);color:var(--red);margin-left:auto;">2%</div>
+            </div>
+          </div>
+          
+          <div style="margin-top:20px; padding-top:14px; border-top:1px solid var(--border);">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px">Node Stats</div>
+            <div class="stat-row"><div class="stat-label">IP EV</div><div class="stat-val" style="color:var(--green)">+2.84 bb</div></div>
+            <div class="stat-row"><div class="stat-label">OOP EV</div><div class="stat-val" style="color:var(--red)">-1.84 bb</div></div>
+            <button class="btn" style="width:100%; margin-top:10px; justify-content:center;" onclick="toast('Node Lock tools opened')">Node Lock</button>
+          </div>
+        </div>
+
+        <div class="strat-main-col" id="matrixCol" tabindex="0">
+          <div class="strat-controls">
+            <div class="toggle-group">
+              <div class="tg-btn active" onclick="setToggle(this)">IP <span class="kbd-hint">Q</span></div>
+              <div class="tg-btn" onclick="setToggle(this)">OOP <span class="kbd-hint">W</span></div>
+            </div>
+            <div class="toggle-group">
+              <div class="tg-btn active" onclick="setToggle(this)">Flop <span class="kbd-hint">1</span></div>
+              <div class="tg-btn" onclick="setToggle(this)">Turn <span class="kbd-hint">2</span></div>
+              <div class="tg-btn" onclick="setToggle(this)">River <span class="kbd-hint">3</span></div>
+            </div>
+            <div class="toggle-group" style="margin-left:auto;">
+              <div class="tg-btn active" onclick="setToggle(this)">Freq <span class="kbd-hint">Space</span></div>
+              <div class="tg-btn" onclick="setToggle(this)">EV</div>
+              <div class="tg-btn" onclick="setToggle(this)">Equity</div>
+            </div>
+          </div>
+
+          <div class="legend" id="matrixLegend">
+            </div>
+
+          <div style="display:flex;gap:2px;margin-bottom:2px; max-width: 580px;">
+            <div style="width:16px;flex-shrink:0"></div>
+            <div style="display:grid;grid-template-columns:repeat(13,1fr);gap:2px;flex:1;" id="mhdr"></div>
+          </div>
+
+          <div class="matrix-wrap" id="fullMatrix"></div>
+          
+          <div style="margin-top:12px; font-size:10px; color:var(--muted);">
+            <em>Tip: Double-click a colored stripe inside a cell to jump directly to that action's node. Click a cell to pin it.</em>
+          </div>
+        </div>
+
+        <div class="strat-right">
+          <div class="sr-title">Pinned Hand <span style="font-size:14px; color:var(--muted); cursor:pointer;" onclick="unpinCard()">×</span></div>
+          <div id="srContent">
+            <div style="color:var(--muted);font-size:11px;line-height:1.5">Click any cell in the matrix to pin its detailed breakdown here.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="panel" id="aggPanel">
+        <h2>Aggregation Reports</h2>
+        <div class="placeholder-box">Aggregation charts and tables would render here.</div>
+      </div>
+      <div class="panel" id="blockerPanel">
+        <h2>Blocker Impact</h2>
+        <div class="placeholder-box">Card removal heatmaps would render here.</div>
+      </div>
+      <div class="panel" id="comparePanel">
+        <h2>Strategy Comparison</h2>
+        <div class="placeholder-box">Side-by-side matrices would render here.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <div class="si"><span class="dot on" id="sdot"></span><span id="slabel">Solved — 1,000,000 iterations</span></div>
+    <div class="si">Nodes: <em>94,120</em></div>
+    <div class="si">Exploitability: <em id="sexploit">0.31% pot</em></div>
+    <div class="si" style="margin-left:auto">CFR+ • 8 Threads • Apple M2 Max</div>
+  </div>
+</div>
+
+<div class="hover-card" id="hoverCard">
+  <div class="hc-hand">
+    <span id="hcHandTxt">AA</span>
+    <span class="pin-icon">📌</span>
+  </div>
+  <div id="hcRows"></div>
+  <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+    EV: <span id="hcEV" style="font-family:'IBM Plex Mono',monospace;color:var(--text)"></span>
+    &nbsp;•&nbsp;Eq: <span id="hcEq" style="font-family:'IBM Plex Mono',monospace;color:var(--text)"></span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const RANKS=['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+const AN=['Check/Call','Bet 33%','Bet 75%','Raise','Fold'];
+// We use CSS variables for colors so the colorblind toggle works automatically
+const AC_VARS=['var(--green)','var(--accent2)','var(--accent)','var(--yellow)','var(--red)'];
+
+let isPinned = false;
+let pinnedCell = null;
+
+// Pseudo-random generator for visualization demo
+function pr(s){return((Math.sin(s*9137+41)*1e6)%1+1)%1;}
+
+window.onload=()=>{
+  renderLegend();
+  renderStratMatrix();
+  setupKeyboardShortcuts();
+};
+
+function toggleColorblind() {
+  document.body.classList.toggle('colorblind');
+  toast('Color palette updated');
+}
+
+function setToggle(el) {
+  const siblings = el.parentElement.children;
+  for(let b of siblings) b.classList.remove('active');
+  el.classList.add('active');
+  // Re-render to simulate data change
+  renderStratMatrix();
+}
+
+function switchTab(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tb').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id+'Panel').classList.add('active');
+  el.classList.add('active');
+}
+
+function renderLegend() {
+  const leg = document.getElementById('matrixLegend');
+  leg.innerHTML = AN.map((name, i) => `
+    <div class="leg">
+      <div class="leg-dot" style="background:${AC_VARS[i]}; opacity: 0.8;"></div>${name}
+    </div>
+  `).join('');
+}
+
+function renderStratMatrix(){
+  const hdr=document.getElementById('mhdr');
+  const wrap=document.getElementById('fullMatrix');
+  hdr.innerHTML='';
+  wrap.innerHTML='';
+  
+  // Header
+  RANKS.forEach(r=>{const d=document.createElement('div');d.style.cssText='font-size:8px;color:var(--muted);text-align:center;font-family:IBM Plex Mono,monospace';d.textContent=r;hdr.appendChild(d);});
+  
+  // Rows
+  RANKS.forEach((r1,i)=>{
+    const row=document.createElement('div');row.className='mrow';
+    const rl=document.createElement('div');rl.className='mrow-label';rl.textContent=r1;row.appendChild(rl);
+    const cells=document.createElement('div');cells.className='mcells';
+    
+    RANKS.forEach((r2,j)=>{
+      const cell=document.createElement('div');cell.className='mcell';
+      const isPair=i===j,isSuited=i<j;
+      const label=isPair?r1+r1:(isSuited?r1+r2+'s':r2+r1+'o');
+      const seed=i*13+j + (Math.random()*10); // Randomize slighty on toggle for demo
+      const rnd=pr(seed);
+      
+      let freqs;
+      if(isPair&&i<4)freqs=[0,0.05,0.05,0.8,0.1];
+      else if(isPair)freqs=[0.3,0.2,0.3,0.1,0.1];
+      else if(isSuited&&i<4)freqs=[0.1,0.5,0.25,0.1,0.05];
+      else if(rnd>0.7)freqs=[0.6,0.2,0.1,0,0.1];
+      else if(rnd>0.4)freqs=[0.1,0.5,0.2,0.1,0.1];
+      else freqs=[0.05,0.1,0.6,0.15,0.1];
+      
+      const maxF=Math.max(...freqs);
+      const domIdx=freqs.indexOf(maxF);
+      
+      // Calculate background opacity (using native CSS custom property parsing workaround for demo, or solid fallback)
+      // Since we use CSS vars, we'll apply a solid background based on the dominant color, but with opacity via a pseudo-element or rgba if we extracted it. 
+      // For simplicity in this demo, we'll just set the background to the variable.
+      cell.style.backgroundColor = AC_VARS[domIdx];
+      cell.style.opacity = 0.3 + (maxF * 0.7); // Visual intensity
+
+      const stripe=document.createElement('div');stripe.className='stripe';
+      freqs.forEach((f,fi)=>{
+        if(f>0.02){
+          const b=document.createElement('div');
+          b.style.cssText=`width:${f*100}%;background:${AC_VARS[fi]};height:100%`;
+          b.title = `Double click to jump to ${AN[fi]} node`;
+          b.ondblclick = (e) => { e.stopPropagation(); toast(`Jumped to node: ${label} -> ${AN[fi]}`); };
+          stripe.appendChild(b);
+        }
+      });
+      cell.appendChild(stripe);
+      
+      // Interactions
+      const ev=(pr(seed+1)*4-0.5).toFixed(2);
+      const eq=(40+pr(seed+2)*30).toFixed(1);
+      
+      cell.addEventListener('mouseenter',(e)=>{
+        if(!isPinned) showHoverCard(e,label,freqs,ev,eq, cell);
+      });
+      cell.addEventListener('mouseleave',()=>{
+        if(!isPinned) document.getElementById('hoverCard').style.display='none';
+      });
+      
+      cell.addEventListener('click', (e) => {
+        // Toggle pin
+        if(pinnedCell === cell) {
+          unpinCard();
+        } else {
+          if(pinnedCell) pinnedCell.classList.remove('pinned');
+          pinnedCell = cell;
+          isPinned = true;
+          cell.classList.add('pinned');
+          const hc = document.getElementById('hoverCard');
+          hc.classList.add('is-pinned');
+          showHoverCard(e,label,freqs,ev,eq, cell);
+          updateRightPanel(label,freqs,ev,eq);
+        }
+      });
+      
+      cells.appendChild(cell);
+    });
+    row.appendChild(cells);wrap.appendChild(row);
+  });
+}
+
+function showHoverCard(e,label,freqs,ev,eq, cell){
+  const hc=document.getElementById('hoverCard');
+  document.getElementById('hcHandTxt').textContent=label;
+  document.getElementById('hcEV').textContent=(parseFloat(ev)>0?'+':'')+ev+' bb';
+  document.getElementById('hcEq').textContent=eq+'%';
+  
+  document.getElementById('hcRows').innerHTML=freqs.map((f,i)=>f>0.02?`
+    <div class="hc-row">
+      <div class="hc-label" style="color:${AC_VARS[i]}">${AN[i]}</div>
+      <div class="hc-bar"><div class="hc-fill" style="width:${f*100}%;background:${AC_VARS[i]}"></div></div>
+      <div class="hc-pct" style="color:${AC_VARS[i]}">${(f*100).toFixed(0)}%</div>
+    </div>
+  `:'').join('');
+  
+  hc.style.display='block';
+  
+  // Position tooltip near the cell
+  const rect = cell.getBoundingClientRect();
+  hc.style.left=(rect.right + 10)+'px';
+  hc.style.top=(rect.top - 20)+'px';
+}
+
+function updateRightPanel(label,freqs,ev,eq) {
+  document.getElementById('srContent').innerHTML=`
+    <div class="sr-hand">${label}</div>
+    <div class="sr-ev">EV: <em style="color:${parseFloat(ev)>0?'var(--green)':'var(--red)'}">${parseFloat(ev)>0?'+':''}${ev} bb</em></div>
+    <div style="margin-bottom:16px;">
+    ${freqs.map((f,i)=>f>0.02?`
+      <div class="sr-action">
+        <div class="sra-label" style="color:${AC_VARS[i]}">${AN[i]}</div>
+        <div class="sra-track"><div class="sra-fill" style="width:${f*100}%;background:${AC_VARS[i]}"></div></div>
+        <div class="sra-pct" style="color:${AC_VARS[i]}">${(f*100).toFixed(0)}%</div>
+      </div>
+    `:'').join('')}
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div class="stat-row"><div class="stat-label">Equity</div><div class="stat-val">${eq}%</div></div>
+      <div class="stat-row"><div class="stat-label">Combos</div><div class="stat-val">${label.endsWith('s')?4:label.endsWith('o')?12:6}</div></div>
+    </div>
+  `;
+}
+
+function unpinCard() {
+  isPinned = false;
+  if(pinnedCell) pinnedCell.classList.remove('pinned');
+  pinnedCell = null;
+  document.getElementById('hoverCard').classList.remove('is-pinned');
+  document.getElementById('hoverCard').style.display='none';
+  document.getElementById('srContent').innerHTML = '<div style="color:var(--muted);font-size:11px;line-height:1.5">Click any cell in the matrix to pin its detailed breakdown here.</div>';
+}
+
+function selectNode(el,title){
+  document.querySelectorAll('.tree-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  toast('Navigated to: '+title);
+  // Re-render to simulate tree navigation
+  renderStratMatrix();
+}
+
+function startSolve(){
+  const btn=document.getElementById('solveBtn');
+  btn.classList.add('running');btn.textContent='⟳ Solving...';
+  document.getElementById('solveProgress').style.display='block';
+  
+  let p=0;
+  const iv=setInterval(()=>{
+    p+=Math.random()*15+5;if(p>100)p=100;
+    document.getElementById('progFill').style.width=p+'%';
+    document.getElementById('progPct').textContent=Math.floor(p)+'%';
+    if(p>=100){
+      clearInterval(iv);
+      btn.classList.remove('running');btn.textContent='↺ Re-Solve';
+      document.getElementById('solveProgress').style.display='none';
+      toast('✓ Solve complete');
+    }
+  },150);
+}
+
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Only trigger if not in an input field
+    if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    
+    switch(e.key) {
+      case '1': toast('Switched to Flop'); break;
+      case '2': toast('Switched to Turn'); break;
+      case '3': toast('Switched to River'); break;
+      case 'q': case 'Q': toast('Switched to IP Player'); break;
+      case 'w': case 'W': toast('Switched to OOP Player'); break;
+      case ' ': 
+        e.preventDefault(); // Prevent scrolling
+        toast('Toggled View Mode'); 
+        break;
+      case 'Escape':
+        unpinCard();
+        break;
+    }
+  });
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+</script>
+</body>
+</html>

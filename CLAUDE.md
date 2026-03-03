@@ -50,17 +50,22 @@ See `PRD.txt` for the full 8-phase roadmap.
 - [x] **Real range iteration** — `equity.rs`: `enumerate_combos` (dead-card aware), `range_ev_ip` (averages EV over all non-conflicting IP×OOP combos)
 - [x] `solver_performance.rs` Criterion benchmark — `cfr_single_iteration`, `cfr_1000_iterations`, `exploitability_check`
 
-### 🔲 PHASE 3 — Tree Builder
-- [ ] `GameConfig` struct (board, ranges, bet sizes, stack depth)
-- [ ] Action generator — fold/check/call/bet enumeration per street
-- [ ] Flop → turn → river node generation
-- [ ] Chance nodes for turn/river card dealing (enumerate remaining deck)
-- [ ] Terminal node creation with correct pot/stack accounting
-- [ ] Connect generated tree to `CfrSolver` + real hand evaluator for terminal EVs
-- [ ] End-to-end solve: tree build → CFR+ → convergence report
-- [ ] Memory profiling (target: ~31 MB for 100k-node tree per `MEMORY_LAYOUT.md`)
-- [ ] Replace `tree/src/lib.rs` stub `build_tree()` with real implementation
-- [ ] Add `solver_performance.rs` Criterion benchmark for 100k-node tree
+### ✅ PHASE 3 — Tree Builder + Range-Aware CFR
+- [x] `GameConfig` struct (board, pot, stacks, bet/raise sizes, max raises, allin threshold)
+- [x] Action generator — fold/check/call/bet enumeration per street with allin snapping, dedup, min-raise
+- [x] Flop → turn → river node generation (`tree/src/builder.rs`)
+- [x] Chance nodes for turn/river card dealing (enumerate remaining deck)
+- [x] Terminal node creation with correct pot/stack accounting
+- [x] Range-aware CFR solver with vector-reach traversal (`engine/src/range_cfr.rs`)
+- [x] RankCache (precomputed hand ranks per board) + conflict table (combo pair card conflicts)
+- [x] Alternating IP/OOP traversals with net payoff terminal EVs
+- [x] Best-response exploitability via vector-reach BR traversal
+- [x] Card parsing (`Card::from_str`, `Card::parse_board`, `Display for Card`)
+- [x] CLI `oracle solve-tree` command with board/config parsing, convergence reporting
+- [x] Memory profiling (`MemoryReport` struct, printed at CLI startup)
+- [x] End-to-end solve: tree build → range CFR+ → convergence (river: 0.16 bb in 100 iters)
+- [x] Integration tests (`engine/tests/range_cfr_integration.rs`)
+- [x] Replace `tree/src/lib.rs` stub with real implementation
 
 ### 🔲 PHASE 4 — Mac UI (MVP Launch)
 - [ ] SwiftUI project scaffold (`ui-mac/`)
@@ -120,19 +125,23 @@ See `PRD.txt` for the full 8-phase roadmap.
 |---|---|
 | `engine/src/` | Core library: card types, hand evaluator, game tree nodes, GameTree struct |
 | `engine/benches/` | Criterion benchmarks: evaluator throughput, memory layout |
-| `tree/src/` | Game tree builder (Phase 3 stub — `build_tree()` returns empty vec) |
-| `cli/src/` | Binary driver: `oracle bench evaluator [N]` command |
+| `tree/src/` | Game tree builder: `GameConfig`, action generator, recursive tree construction |
+| `cli/src/` | Binary driver: `oracle bench evaluator`, `oracle solve`, `oracle solve-tree` commands |
 | `docs/` | Design docs: memory layout, exploitability algorithm, benchmark targets |
 
 ### Key Files
 
-- `engine/src/node.rs` — `Card`, `HandRank`, `HandEvaluator` trait, `Node` enum, `GameTree`
+- `engine/src/node.rs` — `Card` (with `from_str`, `parse_board`, `Display`), `HandRank`, `Node` enum, `GameTree`
 - `engine/src/evaluator.rs` — `CactusKevEvaluator`, NEON batch eval, lookup tables, tests
 - `engine/src/cfr.rs` — `CfrSolver`, `RegretStorage`, `cfr_traverse_fn` (Rayon-parallel)
+- `engine/src/range_cfr.rs` — `RangeSolver`, vector-reach CFR, `RankCache`, conflict table, `MemoryReport`
 - `engine/src/exploitability.rs` — `compute_exploitability`, best-response traversal, `ConvergenceMetrics`
 - `engine/src/test_tree.rs` — 9-node and 11-node hardcoded test trees + fixed EV tables
 - `engine/src/lib.rs` — Public API surface (re-exports)
-- `cli/src/main.rs` — CLI entry point: `bench evaluator` + `solve` commands
+- `tree/src/lib.rs` — `GameConfig`, `build_tree` entry point, validation
+- `tree/src/builder.rs` — Recursive tree construction, bet/call/fold/showdown/chance handling
+- `tree/src/actions.rs` — `BettingState`, `legal_actions`, allin snapping, dedup, min-raise
+- `cli/src/main.rs` — CLI entry point: `bench evaluator`, `solve`, `solve-tree` commands
 
 ## Build & Test Commands
 
@@ -148,6 +157,8 @@ cargo test                                        # all unit tests
 cargo run --bin oracle                            # help
 cargo run --release --bin oracle bench evaluator  # 1M hand benchmark
 cargo run --release --bin oracle bench evaluator 10000000
+cargo run --release --bin oracle solve-tree --board AhKs7d2c5s  # river solve
+cargo run --release --bin oracle solve-tree --board AhKs7d2c    # turn solve (larger tree)
 
 # Criterion benchmarks
 cargo bench                                       # all
