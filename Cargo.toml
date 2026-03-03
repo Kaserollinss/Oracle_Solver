@@ -1,5 +1,5 @@
 [workspace]
-members = ["engine", "tree", "cli"]
+members = ["engine", "tree", "cli", "ui/src-tauri"]
 resolver = "2"
 
 [workspace.package]

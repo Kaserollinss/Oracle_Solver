@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #060608;
+  --s1: #0c0d12;
+  --s2: #12141c;
+  --s3: #191c27;
+  --border: #1c1f30;
+  --border2: #252a3f;
+
+  /* Action Colors */
+  --green: #4ade80;   /* Check/Call */
+  --accent2: #38bdf8; /* Bet small */
+  --accent: #c084fc;  /* Bet large */
+  --yellow: #facc15;  /* Raise */
+  --red: #f87171;     /* Fold / All-in */
+
+  --accent3: #f472b6;
+  --text: #e2e6f3;
+  --text2: #a0a8c0;
+  --muted: #484e6a;
+  --glow: rgba(192,132,252,0.08);
+}
+
+/* Colorblind Accessible Palette (Okabe-Ito inspired) */
+.colorblind {
+  --green: #0072B2;
+  --accent2: #E69F00;
+  --accent: #CC79A7;
+  --yellow: #F0E442;
+  --red: #D55E00;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
